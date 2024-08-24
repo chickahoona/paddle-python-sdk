@@ -1,43 +1,3 @@
-from json import dumps as json_dumps, JSONEncoder
-from logging            import Logger, getLogger
-from requests           import Response, RequestException, Session
-from requests.adapters  import HTTPAdapter
-from urllib3.util.retry import Retry
-from urllib.parse       import urljoin, urlencode
-from uuid               import uuid4
-
-from paddle_billing.FiltersUndefined import FiltersUndefined
-from paddle_billing.HasParameters    import HasParameters
-from paddle_billing.Options          import Options
-from paddle_billing.PaddleStrEnum import PaddleStrEnum
-from paddle_billing.ResponseParser   import ResponseParser
-
-from paddle_billing.Logger.NullHandler import NullHandler
-
-from paddle_billing.Resources.Addresses.AddressesClient                       import AddressesClient
-from paddle_billing.Resources.Adjustments.AdjustmentsClient                   import AdjustmentsClient
-from paddle_billing.Resources.Businesses.BusinessesClient                     import BusinessesClient
-from paddle_billing.Resources.Customers.CustomersClient                       import CustomersClient
-from paddle_billing.Resources.Discounts.DiscountsClient                       import DiscountsClient
-from paddle_billing.Resources.Events.EventsClient                             import EventsClient
-from paddle_billing.Resources.EventTypes.EventTypesClient                     import EventTypesClient
-from paddle_billing.Resources.Notifications.NotificationsClient               import NotificationsClient
-from paddle_billing.Resources.NotificationLogs.NotificationLogsClient         import NotificationLogsClient
-from paddle_billing.Resources.NotificationSettings.NotificationSettingsClient import NotificationSettingsClient
-from paddle_billing.Resources.Prices.PricesClient                             import PricesClient
-from paddle_billing.Resources.PricingPreviews.PricingPreviewsClient           import PricingPreviewsClient
-from paddle_billing.Resources.Products.ProductsClient                         import ProductsClient
-from paddle_billing.Resources.Reports.ReportsClient                           import ReportsClient
-from paddle_billing.Resources.Subscriptions.SubscriptionsClient               import SubscriptionsClient
-from paddle_billing.Resources.Transactions.TransactionsClient                 import TransactionsClient
-
-class PayloadEncoder(JSONEncoder):
-    def default(self, z):
-        if hasattr(z, 'to_json') and callable(z.to_json):
-            return z.to_json()
-
-        return super().default(z)
-
 class Client:
     """
     Client for making API requests using Python's requests library.
@@ -50,6 +10,7 @@ class Client:
         logger:          Logger   = None,
         retry_count:     int      = 3,
         use_api_version: int      = 1,
+        timeout:         float    = 10.0,
     ):
         self.__api_key       = api_key
         self.retry_count     = retry_count
@@ -58,6 +19,7 @@ class Client:
         self.options         = options     if options     else Options()
         self.log             = logger      if logger      else Client.null_logger()
         self.client          = http_client if http_client else self.build_request_session()
+        self.timeout         = timeout
         self.payload         = None  # Used by pytest
         self.status_code     = None  # Used by pytest
 
@@ -133,7 +95,7 @@ class Client:
         self.payload = self.serialize_json_payload(payload) if payload else None
         try:
             # We use data= instead of json= because we manually serialize data into JSON
-            response         = self.client.request(method.upper(), url, data=self.payload)
+            response         = self.client.request(method.upper(), url, data=self.payload, timeout=self.timeout)
             self.status_code = response.status_code
             response.raise_for_status()
 
